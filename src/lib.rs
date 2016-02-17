@@ -2,41 +2,58 @@
 #![crate_type = "rlib"]
 #![crate_type = "dylib"]
 
-use std::ops::Range;
+use std::ops::Range as RangeFromTo;
 use std::result;
 
+pub trait Contains<T>
+where T: PartialOrd<T> {
+    fn contains(&self, value: &T) -> bool;
 
-pub trait RangeExt: Sized {
+    fn bounds(self) -> Bounds<T>;
+}
 
-    /// Returns whether this value exists within the given range of values.
-    fn is_within(&self, range: &Range<Self>) -> bool;
+impl<T> Contains<T> for RangeFromTo<T>
+where T: PartialOrd<T> {
+    fn contains(&self, value: &T) -> bool {
+        *value >= self.start && *value < self.end
+    }
 
-    fn check_range(self, range: Range<Self>) -> Result<Self> {
+    fn bounds(self) -> Bounds<T> {
+        Bounds {
+            lower: Some(self.start),
+            upper: Some(self.end),
+        }
+    }
+}
+
+pub trait Within<R>: Sized + PartialOrd
+where R: Contains<Self> {
+    fn is_within(&self, range: &R) -> bool {
+        range.contains(&self)
+    }
+
+    fn check_range(self, range: R) -> Result<Self> {
         if self.is_within(&range) {
             Ok(self)
         }
         else {
             Err(Error {
-                allowed_range: range,
+                allowed_range: range.bounds(),
                 outside_value: self,
             })
         }
     }
 }
 
-// Define RangeExt on *anything* that can be compared, though it’s only
-// really ever used for numeric ranges...
-
-impl<T> RangeExt for T where T: PartialOrd<T> {
-    fn is_within(&self, range: &Range<Self>) -> bool {
-        *self >= range.start && *self < range.end
-    }
+#[derive(PartialEq, Debug, Clone)]
+pub struct Bounds<T> {
+    lower: Option<T>,
+    upper: Option<T>,
 }
-
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Error<T> {
-    allowed_range: Range<T>,
+    allowed_range: Bounds<T>,
     outside_value: T,
 }
 
