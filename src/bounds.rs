@@ -2,10 +2,15 @@ use std::fmt;
 use std::ops::{Range, RangeFrom, RangeTo};
 
 
+/// The two bounds destructured from a Range value.
 #[derive(PartialEq, Debug, Clone)]
 pub struct Bounds<T> {
-    lower: Option<T>,
-    upper: Option<T>,
+
+    /// The lower bound. `Range` and `RangeFrom` have one of these.
+    pub lower: Option<T>,
+
+    /// The upper bound. `Range` and `RangeTo` have one of these.
+    pub upper: Option<T>,
 }
 
 impl<T: fmt::Debug> fmt::Display for Bounds<T> {
@@ -25,7 +30,11 @@ impl<T: fmt::Debug> fmt::Display for Bounds<T> {
 }
 
 
+/// Trait to get the bounds of ranges.
 pub trait Bounded<T> {
+
+    /// Returns a `Bounds` value containing the lower and upper bounds of this
+    /// range, if present.
     fn bounds(self) -> Bounds<T>;
 }
 

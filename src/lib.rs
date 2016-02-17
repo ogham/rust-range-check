@@ -75,7 +75,7 @@
 
 #![warn(missing_copy_implementations)]
 #![warn(missing_debug_implementations)]
-//#![warn(missing_docs)]
+#![warn(missing_docs)]
 #![warn(trivial_casts, trivial_numeric_casts)]
 #![warn(unused_qualifications)]
 #![warn(unused_results)]
@@ -87,15 +87,25 @@ mod bounds;
 pub use bounds::{Bounds, Bounded};
 
 mod result;
-pub use result::{Check, Result};
+pub use result::{Check, Result, Error};
 
 
-/// A trait for values that could contain another value, such as ranges.
+/// A trait for all range-type values.
 pub trait Contains<T> {
 
-    /// Whether this contains the given value.
+    /// Returns `true` if this range contains the given value, `false`
+    /// otherwise.
     ///
     /// Supports both values and references as the thing to check.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use range_check::Contains;
+    ///
+    /// let range = 3000..5000;
+    /// assert!(range.contains(4123));
+    /// ```
     fn contains<TRef: Borrow<T>>(&self, value: TRef) -> bool;
 }
 
@@ -121,7 +131,21 @@ where T: PartialOrd {
 }
 
 
+/// A trait for values that could be contained in a range.
 pub trait Within<R, RRef: Borrow<R>>: Sized {
+
+    /// Returns `true` if this value is contained within the given range;
+    /// `false` otherwise.
+    ///
+    /// Supports both values and references as the range argument.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use range_check::Within;
+    ///
+    /// assert!(4123.is_within(3000..5000));
+    /// ```
     fn is_within(&self, range: RRef) -> bool;
 }
 
