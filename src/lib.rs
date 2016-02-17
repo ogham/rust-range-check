@@ -3,6 +3,7 @@
 #![crate_type = "dylib"]
 
 use std::any::Any;
+use std::borrow::Borrow;
 use std::error::Error as ErrorTrait;
 use std::fmt;
 use std::ops::{Range, RangeFrom, RangeTo};
@@ -10,17 +11,23 @@ use std::result;
 
 
 pub trait Contains<T> {
-    fn contains(&self, value: &T) -> bool;
+    fn contains<TRef: Borrow<T>>(&self, value: TRef) -> bool;
+}
 
+pub trait Bounded<T> {
     fn bounds(self) -> Bounds<T>;
 }
 
+// impls for Range...
+
 impl<T> Contains<T> for Range<T>
 where T: PartialOrd {
-    fn contains(&self, value: &T) -> bool {
-        *value >= self.start && *value < self.end
+    fn contains<TRef: Borrow<T>>(&self, value: TRef) -> bool {
+        (value.borrow() >= &self.start) && (value.borrow() < &self.end)
     }
+}
 
+impl<T> Bounded<T> for Range<T> {
     fn bounds(self) -> Bounds<T> {
         Bounds {
             lower: Some(self.start),
@@ -29,12 +36,16 @@ where T: PartialOrd {
     }
 }
 
+// impls for RangeFrom...
+
 impl<T> Contains<T> for RangeFrom<T>
 where T: PartialOrd {
-    fn contains(&self, value: &T) -> bool {
-        *value >= self.start
+    fn contains<TRef: Borrow<T>>(&self, value: TRef) -> bool {
+        value.borrow() >= &self.start
     }
+}
 
+impl<T> Bounded<T> for RangeFrom<T> {
     fn bounds(self) -> Bounds<T> {
         Bounds {
             lower: Some(self.start),
@@ -43,12 +54,16 @@ where T: PartialOrd {
     }
 }
 
+// impls for RangeTo...
+
 impl<T> Contains<T> for RangeTo<T>
 where T: PartialOrd {
-    fn contains(&self, value: &T) -> bool {
-        *value < self.end
+    fn contains<TRef: Borrow<T>>(&self, value: TRef) -> bool {
+        value.borrow() < &self.end
     }
+}
 
+impl<T> Bounded<T> for RangeTo<T> {
     fn bounds(self) -> Bounds<T> {
         Bounds {
             lower: None,
@@ -58,17 +73,31 @@ where T: PartialOrd {
 }
 
 
-pub trait Within<R>: Sized {
-    fn is_within(&self, range: &R) -> bool;
+pub trait Within<R, RRef: Borrow<R>>: Sized {
+    fn is_within(&self, range: RRef) -> bool;
+}
+
+impl<T, R> Within<R, R> for T
+where R: Contains<T> {
+    fn is_within(&self, range: R) -> bool {
+        range.borrow().contains(self)
+    }
+}
+
+impl<'a, T, R> Within<R, &'a R> for T
+where R: Contains<T> {
+    fn is_within(&self, range: &'a R) -> bool {
+        range.borrow().contains(self)
+    }
+}
+
+
+pub trait Check<R>: Sized {
     fn check_range(self, range: R) -> Result<Self>;
 }
 
-impl<T, R> Within<R> for T
-where R: Contains<T> {
-    fn is_within(&self, range: &R) -> bool {
-        range.contains(self)
-    }
-
+impl<T, R> Check<R> for T
+where R: Contains<T> + Bounded<T> {
     fn check_range(self, range: R) -> Result<Self> {
         if self.is_within(&range) {
             Ok(self)
@@ -135,32 +164,32 @@ mod test {
 
     #[test]
     fn yes() {
-        assert!((1..5).contains(&3));
-        assert!(3.is_within(&(1..5)));
+        assert!((1..5).contains(3));
+        assert!(3.is_within(1..5));
     }
 
     #[test]
     fn no() {
         assert!(!(1..5).contains(&7));
-        assert!(!7.is_within(&(1..5)));
+        assert!(!(7.is_within(1..5)));
     }
 
     #[test]
     fn from_yes() {
         assert!((1..).contains(&3));
-        assert!(3.is_within(&(1..)));
+        assert!(3.is_within(1..));
     }
 
     #[test]
     fn from_no() {
         assert!(!(1..).contains(&-7));
-        assert!(!(-7).is_within(&(1..)));
+        assert!(!(-7).is_within(1..));
     }
 
     #[test]
     fn to_yes() {
         assert!((..5).contains(&3));
-        assert!(3.is_within(&(..5)));
+        assert!(3.is_within(..5));
     }
 
     #[test]
