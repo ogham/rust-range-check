@@ -2,8 +2,12 @@
 #![crate_type = "rlib"]
 #![crate_type = "dylib"]
 
+use std::any::Any;
+use std::error::Error as ErrorTrait;
+use std::fmt;
 use std::ops::Range;
 use std::result;
+
 
 pub trait Contains<T> {
     fn contains(&self, value: &T) -> bool;
@@ -24,6 +28,7 @@ where T: PartialOrd<T> {
         }
     }
 }
+
 
 pub trait Within<R>: Sized {
     fn is_within(&self, range: &R) -> bool;
@@ -49,17 +54,49 @@ where R: Contains<T> {
     }
 }
 
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct Bounds<T> {
     lower: Option<T>,
     upper: Option<T>,
 }
 
+impl<T: fmt::Debug> fmt::Display for Bounds<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(ref lower) = self.lower {
+            try!(write!(f, "{:?}", lower));
+        }
+
+        try!(write!(f, " .. "));
+
+        if let Some(ref upper) = self.upper {
+            try!(write!(f, "{:?}", upper));
+        }
+
+        Ok(())
+    }
+}
+
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct Error<T> {
     allowed_range: Bounds<T>,
     outside_value: T,
 }
+
+impl<T: fmt::Debug + Any> ErrorTrait for Error<T> {
+    fn description(&self) -> &str {
+        "value outside of range"
+    }
+}
+
+impl<T: fmt::Debug> fmt::Display for Error<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "value ({:?}) outside of range ({})",
+            self.outside_value, self.allowed_range)
+    }
+}
+
 
 pub type Result<T> = result::Result<T, Error<T>>;
 
