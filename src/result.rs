@@ -47,4 +47,4 @@ impl<T: fmt::Debug> fmt::Display for Error<T> {
 }
 
 
-pub type Result<T> = result::Result<T, Error<T>>;
+pub type Result<T, E=T> = result::Result<T, Error<E>>;
