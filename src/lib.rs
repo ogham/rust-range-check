@@ -5,7 +5,7 @@
 use std::any::Any;
 use std::error::Error as ErrorTrait;
 use std::fmt;
-use std::ops::Range;
+use std::ops::{Range, RangeFrom, RangeTo};
 use std::result;
 
 
@@ -16,7 +16,7 @@ pub trait Contains<T> {
 }
 
 impl<T> Contains<T> for Range<T>
-where T: PartialOrd<T> {
+where T: PartialOrd {
     fn contains(&self, value: &T) -> bool {
         *value >= self.start && *value < self.end
     }
@@ -24,6 +24,34 @@ where T: PartialOrd<T> {
     fn bounds(self) -> Bounds<T> {
         Bounds {
             lower: Some(self.start),
+            upper: Some(self.end),
+        }
+    }
+}
+
+impl<T> Contains<T> for RangeFrom<T>
+where T: PartialOrd {
+    fn contains(&self, value: &T) -> bool {
+        *value >= self.start
+    }
+
+    fn bounds(self) -> Bounds<T> {
+        Bounds {
+            lower: Some(self.start),
+            upper: None,
+        }
+    }
+}
+
+impl<T> Contains<T> for RangeTo<T>
+where T: PartialOrd {
+    fn contains(&self, value: &T) -> bool {
+        *value < self.end
+    }
+
+    fn bounds(self) -> Bounds<T> {
+        Bounds {
+            lower: None,
             upper: Some(self.end),
         }
     }
@@ -115,6 +143,30 @@ mod test {
     fn no() {
         assert!(!(1..5).contains(&7));
         assert!(!7.is_within(&(1..5)));
+    }
+
+    #[test]
+    fn from_yes() {
+        assert!((1..).contains(&3));
+        assert!(3.is_within(&(1..)));
+    }
+
+    #[test]
+    fn from_no() {
+        assert!(!(1..).contains(&-7));
+        assert!(!(-7).is_within(&(1..)));
+    }
+
+    #[test]
+    fn to_yes() {
+        assert!((..5).contains(&3));
+        assert!(3.is_within(&(..5)));
+    }
+
+    #[test]
+    fn to_no() {
+        assert!(!(..5).contains(&7));
+        assert!(!7.is_within(&(..5)));
     }
 }
 
