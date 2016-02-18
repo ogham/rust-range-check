@@ -35,10 +35,7 @@ where R: Contains<T> + Bounded<T> {
             Ok(self)
         }
         else {
-            Err(Error {
-                allowed_range: range.bounds(),
-                outside_value: self,
-            })
+            Err(Error::new(self, range))
         }
     }
 }
@@ -53,6 +50,45 @@ pub struct Error<T> {
 
     /// The value that lies outside of the range.
     pub outside_value: T,
+}
+
+
+impl<T> Error<T> {
+
+    /// Creates a new `Error` using the given value and the bounds of the
+    /// given range.
+    ///
+    /// This gets used by `check_range`, but may need to be called yourself if
+    /// you're implementing, say, your own number-to-enum-variant constructor:
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use range_check::{Error, Result};
+    ///
+    /// #[derive(Debug)]
+    /// enum Number { One, Two, Three }
+    ///
+    /// impl Number {
+    ///     fn from_u8(num: u8) -> Result<Number, u8> {
+    ///         Ok(match num {
+    ///             1 => Number::One,
+    ///             2 => Number::Two,
+    ///             3 => Number::Three,
+    ///             n => return Err(Error::new(n, 1..4)),
+    ///         })
+    ///     }
+    /// }
+    ///
+    /// let error = Number::from_u8(4).unwrap_err();
+    /// assert_eq!(error.outside_value, 4);
+    /// ```
+    pub fn new<R: Bounded<T>>(value: T, range: R) -> Error<T> {
+        Error {
+            outside_value: value,
+            allowed_range: range.bounds(),
+        }
+    }
 }
 
 impl<T: fmt::Debug + Any> ErrorTrait for Error<T> {
