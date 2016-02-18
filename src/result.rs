@@ -154,5 +154,5 @@ impl<T: fmt::Debug> fmt::Display for Error<T> {
 }
 
 
-/// Type alias for a `Result` with an `Error` wrapping the result's error type.
+/// Type alias for a `Result` with an `Error` wrapping the result’s error type.
 pub type Result<T, E=T> = result::Result<T, Error<E>>;

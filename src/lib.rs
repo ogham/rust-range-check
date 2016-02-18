@@ -1,5 +1,5 @@
 //! This is a little library that helps with range and bounds checking. It works
-//! with Rust's standard `Range`, `RangeFrom`, and `RangeTo` types.
+//! with Rust’s standard `Range`, `RangeFrom`, and `RangeTo` types.
 //!
 //!
 //! ## Checking whether a range contains a value
@@ -18,7 +18,7 @@
 //! assert!(range.contains(23));
 //! ```
 //!
-//! There's also the `Within` trait, which does the same check, only with the
+//! There’s also the `Within` trait, which does the same check, only with the
 //! range as the argument:
 //!
 //! ```
@@ -34,7 +34,7 @@
 //! It can sometimes be more helpful to automatically return a failure case,
 //! such as with the `try!` macro, than just check whether a value is inside a
 //! range. The `Check` trait returns `Result`s that contain debugging
-//! information for when a value doesn't lie within a range:
+//! information for when a value doesn’t lie within a range:
 //!
 //! ```
 //! use range_check::Check;
@@ -96,7 +96,7 @@ pub trait Contains<T> {
     /// Returns `true` if this range contains the given value, `false`
     /// otherwise.
     ///
-    /// Supports both values and references as the thing to check.
+    /// Supports both values and references of the type to check.
     ///
     /// ### Examples
     ///
