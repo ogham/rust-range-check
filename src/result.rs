@@ -89,6 +89,55 @@ impl<T> Error<T> {
             allowed_range: range.bounds(),
         }
     }
+
+    /// Converts every value present in the error using `Into::into`. This
+    /// usually has the effect of making the error more generic: you can use
+    /// the *same* type to work with ranges of *different* types.
+    ///
+    /// For example, you could need to validate one `i8` and one `i32`.
+    /// Ordinarily you wouldn’t be able to check both types in the same
+    /// function, as one would return an `Error<i8>`, and the other an
+    /// `Error<i32>`. But because there exists `impl From<i8> for i32`,
+    /// we can use that to convert the numbers to a different type.
+    ///
+    /// ### Examples
+    ///
+    /// The function below checks both an `i8` and an `i32`, but returns a
+    /// `range_check::Error<i32>` because of the `From` implementation.
+    ///
+    /// ```
+    /// use range_check::{self, Check};
+    ///
+    /// enum Error {
+    ///     OutOfRange(range_check::Error<i64>),
+    /// }
+    ///
+    /// impl<E> From<range_check::Error<E>> for Error
+    /// where i64: From<E> {
+    ///     fn from(original: range_check::Error<E>) -> Error {
+    ///         Error::OutOfRange(original.generify())
+    ///     }
+    /// }
+    ///
+    /// fn tiny_clock(hour: i8, minute: i32) -> Result<(i8, i32), Error> {
+    ///     let hour = try!(hour.check_range(0..24));
+    ///     let minute = try!(minute.check_range(0..60));
+    ///     Ok((hour, minute))
+    /// }
+    ///
+    /// assert!(tiny_clock(23, 59).is_ok());
+    /// assert!(tiny_clock(24, 00).is_err());
+    /// ```
+    pub fn generify<U>(self) -> Error<U>
+    where U: From<T> {
+        Error {
+            outside_value: U::from(self.outside_value),
+            allowed_range: Bounds {
+                lower: self.allowed_range.lower.map(From::from),
+                upper: self.allowed_range.upper.map(From::from),
+            },
+        }
+    }
 }
 
 impl<T: fmt::Debug + Any> ErrorTrait for Error<T> {
