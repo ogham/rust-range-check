@@ -53,7 +53,7 @@
 //! In this example, we use the `?` operator to return early:
 //!
 //! ```
-//! use range_check::Check;
+//! use range_check::{Check, OutOfRangeError};
 //!
 //! struct Clock {
 //!     hour: i8,
@@ -61,7 +61,7 @@
 //! }
 //!
 //! impl Clock {
-//!     fn new(hour: i8, minute: i8) -> range_check::Result<Clock, i8> {
+//!     fn new(hour: i8, minute: i8) -> Result<Clock, OutOfRangeError<i8>> {
 //!         Ok(Clock {
 //!             hour: hour.check_range(0..24)?,
 //!             minute: minute.check_range(0..60)?,
@@ -92,7 +92,7 @@
 //! }
 //!
 //! impl Clock {
-//!     fn new(second: i8, millisecond: i16) -> range_check::Result<Clock, i16> {
+//!     fn new(second: i8, millisecond: i16) -> Result<Clock, OutOfRangeError<i16>> {
 //!         Ok(Clock {
 //!             second: second.check_range(0..60).map_err(OutOfRangeError::generify)?,
 //!             millisecond: millisecond.check_range(0..1000)?,
@@ -118,6 +118,6 @@
 #![warn(unused_results)]
 
 mod check;
-pub use check::{Check, Result, OutOfRangeError};
+pub use check::{Check, OutOfRangeError};
 
 mod bounds;

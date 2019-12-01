@@ -1,7 +1,6 @@
 use std::error::Error as ErrorTrait;
 use std::ops::RangeBounds;
 use std::fmt;
-use std::result;
 
 use bounds::{Bounds, copy_bound};
 
@@ -22,14 +21,14 @@ pub trait Check<R: RangeBounds<Self>>: Sized + PartialOrd + Copy {
     /// assert!(24680.check_range(1..99999).is_ok());
     /// assert!(24680.check_range(1..9999).is_err());
     /// ```
-    fn check_range(self, range: R) -> Result<Self>;
+    fn check_range(self, range: R) -> Result<Self, OutOfRangeError<Self>>;
 }
 
 impl<T, R> Check<R> for T
 where R: RangeBounds<T>,
       T: PartialOrd + Copy,
 {
-    fn check_range(self, range: R) -> Result<Self> {
+    fn check_range(self, range: R) -> Result<Self, OutOfRangeError<Self>> {
         if range.contains(&self) {
             Ok(self)
         }
@@ -89,15 +88,3 @@ impl<T> OutOfRangeError<T> {
         }
     }
 }
-
-
-/// Type alias for a `Result` with an `OutOfRangeError` wrapping the range’s
-/// value type.
-///
-/// - `T` is the successful result.
-/// - `V` is the type of values in the range.
-///
-/// Results returned from `check_range` will use the same type for both type
-/// parameters, but the successful result type can be changed inside functions
-/// that use early returns.
-pub type Result<T, V=T> = result::Result<T, OutOfRangeError<V>>;

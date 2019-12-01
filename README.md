@@ -50,7 +50,7 @@ assert_eq!(24680.check_range(1..99999),
            Ok(24680));
 ```
 
-If the value does _not_ exist within the range, it will be returned inside an [`OutOfRangeError`](struct.OutOfRangeError.html) error variant:
+If the value does _not_ exist within the range, it will be returned inside an `OutOfRangeError` error variant:
 
 ```rust
 use range_check::Check;
@@ -67,7 +67,7 @@ When testing multiple values, it can sometimes be helpful to automatically retur
 In this example, we use the `?` operator to return early:
 
 ```rust
-use range_check::Check;
+use range_check::{Check, OutOfRangeError};
 
 struct Clock {
     hour: i8,
@@ -75,7 +75,7 @@ struct Clock {
 }
 
 impl Clock {
-    fn new(hour: i8, minute: i8) -> range_check::Result<Clock, i8> {
+    fn new(hour: i8, minute: i8) -> Result<Clock, OutOfRangeError<i8>> {
         Ok(Clock {
             hour: hour.check_range(0..24)?,
             minute: minute.check_range(0..60)?,
@@ -101,7 +101,7 @@ struct Clock {
 }
 
 impl Clock {
-    fn new(second: i8, millisecond: i16) -> range_check::Result<Clock, i16> {
+    fn new(second: i8, millisecond: i16) -> Result<Clock, OutOfRangeError<i16>> {
         Ok(Clock {
             second: second.check_range(0..60).map_err(OutOfRangeError::generify)?,
             millisecond: millisecond.check_range(0..1000)?,
