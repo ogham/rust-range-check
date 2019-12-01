@@ -1,40 +1,56 @@
 //! This is a little library that helps with range and bounds checking. It works
-//! with Rust’s standard `Range`, `RangeFrom`, and `RangeTo` types.
+//! with Rust’s standard `Range` types.
 //!
 //!
-//! ## Checking whether a range contains a value
+//! Range checking in the stdlib
+//! ----------------------------
 //!
-//! The trait `Contains` is implemented on the range types. As long as the
-//! data type in question is `PartialOrd`, it can be used to check whether a
-//! value of that type is contained within a range:
-//!
-//! ```
-//! use range_check::Contains;
-//!
-//! let range = 3000..5000;
-//! assert!(range.contains(4123));
-//!
-//! let range = 10..;
-//! assert!(range.contains(23));
-//! ```
-//!
-//! There’s also the `Within` trait, which does the same check, only with the
-//! range as the argument:
+//! Rust’s standard library allows you to test whether a range contains
+//! a specified value:
 //!
 //! ```
-//! use range_check::Within;
-//!
-//! assert!(4123.is_within(3000..5000));
-//! assert!(23.is_within(10..));
+//! // Range checking with std::ops
+//! assert_eq!((0..24).contains(&23), true);
+//! assert_eq!((0..24).contains(&24), false);
 //! ```
 //!
+//! For more information, see the
+//! [official Rust documentation for `std::ops::RangeBounds`](https://doc.rust-lang.org/std/ops/trait.RangeBounds.html).
 //!
-//! ## Failing early if a value is outside a range
 //!
-//! It can sometimes be more helpful to automatically return a failure case,
-//! such as with the `try!` macro, than just check whether a value is inside a
-//! range. The `Check` trait returns `Result`s that contain debugging
-//! information for when a value doesn’t lie within a range:
+//! Range checking with this crate
+//! ------------------------------
+//!
+//! The `range_check` crate provides the [`Check`](trait.Check.html) trait that has a function
+//! `check_range`, which returns a [`Result`](type.Result.html) instead of a `bool`.
+//!
+//! If the value exists within the range, it will return the value as an
+//! `Ok` variant:
+//!
+//! ```
+//! use range_check::Check;
+//!
+//! assert_eq!(24680.check_range(1..99999),
+//!            Ok(24680));
+//! ```
+//!
+//! If the value does _not_ exist within the range, it will be returned
+//! inside an [`OutOfRangeError`](struct.OutOfRangeError.html) error variant:
+//!
+//! ```
+//! use range_check::Check;
+//!
+//! assert_eq!(24680.check_range(1..9999).unwrap_err().to_string(),
+//!            "value (24680) outside of range (1..9999)");
+//! ```
+//!
+//! Failing early if a value is outside a range
+//! -------------------------------------------
+//!
+//! When testing multiple values, it can sometimes be helpful to
+//! automatically return when one of them is outside a range.
+//!
+//! In this example, we use the `?` operator to return early:
 //!
 //! ```
 //! use range_check::Check;
@@ -47,25 +63,46 @@
 //! impl Clock {
 //!     fn new(hour: i8, minute: i8) -> range_check::Result<Clock, i8> {
 //!         Ok(Clock {
-//!             hour:   try!(hour.check_range(0..24)),
-//!             minute: try!(minute.check_range(0..60)),
+//!             hour: hour.check_range(0..24)?,
+//!             minute: minute.check_range(0..60)?,
 //!         })
 //!     }
 //! }
 //!
 //! assert!(Clock::new(23, 59).is_ok());
+//! assert!(Clock::new(23, 60).is_err());
 //! assert!(Clock::new(24, 00).is_err());
 //! ```
 //!
-//! Displaying the `Error` that gets returned in the error case shows you
-//! exactly which range failed to be satisfied:
+//! It becomes a problem when the values being tested are of different types,
+//! as there can only be one type as the error `Result` from the function.
+//!
+//! As long as the types can be converted using the [`From`](https://doc.rust-lang.org/std/convert/trait.From.html)
+//! trait, you can convert the error using the
+//! [`OutOfRangeError::generify`](struct.OutOfRangeError.html#method.generify)
+//! function. In the first call in this example, we convert the error from
+//! containing an `i8` to an `i16`:
 //!
 //! ```
-//! use std::string::ToString;
-//! use range_check::Check;
+//! use range_check::{Check, OutOfRangeError};
 //!
-//! let failure = 13.check_range(0..10).unwrap_err();
-//! assert_eq!(failure.to_string(), "value (13) outside of range (0 .. 10)");
+//! struct Clock {
+//!     second: i8,
+//!     millisecond: i16,
+//! }
+//!
+//! impl Clock {
+//!     fn new(second: i8, millisecond: i16) -> range_check::Result<Clock, i16> {
+//!         Ok(Clock {
+//!             second: second.check_range(0..60).map_err(OutOfRangeError::generify)?,
+//!             millisecond: millisecond.check_range(0..1000)?,
+//!         })
+//!     }
+//! }
+//!
+//! assert!(Clock::new(45, 576).is_ok());
+//! assert!(Clock::new(49, 23456).is_err());
+//! assert!(Clock::new(61, 0).is_err());
 //! ```
 
 
@@ -80,128 +117,7 @@
 #![warn(unused_qualifications)]
 #![warn(unused_results)]
 
-use std::borrow::Borrow;
-use std::ops::{Range, RangeFrom, RangeTo};
+mod check;
+pub use check::{Check, Result, OutOfRangeError};
 
 mod bounds;
-pub use bounds::{Bounds, Bounded};
-
-mod result;
-pub use result::{Check, Result, Error};
-
-
-/// A trait for all range-type values.
-pub trait Contains<T> {
-
-    /// Returns `true` if this range contains the given value, `false`
-    /// otherwise.
-    ///
-    /// Supports both values and references of the type to check.
-    ///
-    /// ### Examples
-    ///
-    /// ```
-    /// use range_check::Contains;
-    ///
-    /// let range = 3000..5000;
-    /// assert!(range.contains(4123));
-    /// ```
-    fn contains<TRef: Borrow<T>>(&self, value: TRef) -> bool;
-}
-
-impl<T> Contains<T> for Range<T>
-where T: PartialOrd {
-    fn contains<TRef: Borrow<T>>(&self, value: TRef) -> bool {
-        (value.borrow() >= &self.start) && (value.borrow() < &self.end)
-    }
-}
-
-impl<T> Contains<T> for RangeFrom<T>
-where T: PartialOrd {
-    fn contains<TRef: Borrow<T>>(&self, value: TRef) -> bool {
-        value.borrow() >= &self.start
-    }
-}
-
-impl<T> Contains<T> for RangeTo<T>
-where T: PartialOrd {
-    fn contains<TRef: Borrow<T>>(&self, value: TRef) -> bool {
-        value.borrow() < &self.end
-    }
-}
-
-
-/// A trait for values that could be contained in a range.
-pub trait Within<R, RRef: Borrow<R>>: Sized {
-
-    /// Returns `true` if this value is contained within the given range;
-    /// `false` otherwise.
-    ///
-    /// Supports both values and references as the range argument.
-    ///
-    /// ### Examples
-    ///
-    /// ```
-    /// use range_check::Within;
-    ///
-    /// assert!(4123.is_within(3000..5000));
-    /// ```
-    fn is_within(&self, range: RRef) -> bool;
-}
-
-impl<T, R> Within<R, R> for T
-where R: Contains<T> {
-    fn is_within(&self, range: R) -> bool {
-        range.borrow().contains(self)
-    }
-}
-
-impl<'a, T, R> Within<R, &'a R> for T
-where R: Contains<T> {
-    fn is_within(&self, range: &'a R) -> bool {
-        range.borrow().contains(self)
-    }
-}
-
-
-#[cfg(test)]
-mod test {
-    use super::{Contains, Within};
-
-    #[test]
-    fn yes() {
-        assert!((1..5).contains(3));
-        assert!(3.is_within(1..5));
-    }
-
-    #[test]
-    fn no() {
-        assert!(!(1..5).contains(&7));
-        assert!(!(7.is_within(1..5)));
-    }
-
-    #[test]
-    fn from_yes() {
-        assert!((1..).contains(&3));
-        assert!(3.is_within(1..));
-    }
-
-    #[test]
-    fn from_no() {
-        assert!(!(1..).contains(&-7));
-        assert!(!(-7).is_within(1..));
-    }
-
-    #[test]
-    fn to_yes() {
-        assert!((..5).contains(&3));
-        assert!(3.is_within(..5));
-    }
-
-    #[test]
-    fn to_no() {
-        assert!(!(..5).contains(&7));
-        assert!(!7.is_within(&(..5)));
-    }
-}
-

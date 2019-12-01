@@ -1,67 +1,67 @@
 use std::fmt;
-use std::ops::{Range, RangeFrom, RangeTo};
+use std::ops::Bound;
 
+
+// We need this type to generalise over all the Range types.
 
 /// The two bounds destructured from a Range value.
 #[derive(PartialEq, Debug, Clone)]
 pub struct Bounds<T> {
 
-    /// The lower bound. `Range` and `RangeFrom` have one of these.
-    pub lower: Option<T>,
+    /// The lower bound, created by `start_bound`.
+    pub lower: Bound<T>,
 
-    /// The upper bound. `Range` and `RangeTo` have one of these.
-    pub upper: Option<T>,
+    /// The upper bound, created by `end_bound`.
+    pub upper: Bound<T>,
 }
 
 impl<T: fmt::Debug> fmt::Display for Bounds<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(ref lower) = self.lower {
-            try!(write!(f, "{:?}", lower));
+        match &self.lower {
+            Bound::Included(n)  => write!(f, "{:?}", n)?,
+            Bound::Excluded(n)  => write!(f, "{:?}=", n)?,  // surprisingly, not unreachable
+            Bound::Unbounded    => {},
         }
 
-        try!(write!(f, " .. "));
+        write!(f, "..")?;
 
-        if let Some(ref upper) = self.upper {
-            try!(write!(f, "{:?}", upper));
+        match &self.upper {
+            Bound::Included(n)  => write!(f, "={:?}", n)?,
+            Bound::Excluded(n)  => write!(f, "{:?}", n)?,
+            Bound::Unbounded    => {},
         }
 
         Ok(())
     }
 }
 
+impl<T> Bounds<T>
+{
+    // This is basically an implementation of From in all but name.
+    pub(crate) fn convert<U>(self) -> Bounds<U>
+    where U: From<T>
+    {
+        let lower = match self.lower {
+            Bound::Included(t)  => Bound::Included(U::from(t)),
+            Bound::Excluded(t)  => Bound::Excluded(U::from(t)),
+            Bound::Unbounded    => Bound::Unbounded,
+        };
 
-/// Trait to get the bounds of ranges.
-pub trait Bounded<T> {
+        let upper = match self.upper {
+            Bound::Included(t)  => Bound::Included(U::from(t)),
+            Bound::Excluded(t)  => Bound::Excluded(U::from(t)),
+            Bound::Unbounded    => Bound::Unbounded,
+        };
 
-    /// Returns a `Bounds` value containing the lower and upper bounds of this
-    /// range, if present.
-    fn bounds(self) -> Bounds<T>;
-}
-
-
-impl<T> Bounded<T> for Range<T> {
-    fn bounds(self) -> Bounds<T> {
-        Bounds {
-            lower: Some(self.start),
-            upper: Some(self.end),
-        }
+        Bounds { lower, upper }
     }
 }
 
-impl<T> Bounded<T> for RangeFrom<T> {
-    fn bounds(self) -> Bounds<T> {
-        Bounds {
-            lower: Some(self.start),
-            upper: None,
-        }
-    }
-}
-
-impl<T> Bounded<T> for RangeTo<T> {
-    fn bounds(self) -> Bounds<T> {
-        Bounds {
-            lower: None,
-            upper: Some(self.end),
-        }
+// http://github.com/rust-lang/rust/issues/61356
+pub fn copy_bound<T: Copy>(bound: Bound<&T>) -> Bound<T> {
+    match bound {
+        Bound::Unbounded    => Bound::Unbounded,
+        Bound::Included(n)  => Bound::Included(*n),
+        Bound::Excluded(n)  => Bound::Excluded(*n),
     }
 }

@@ -1,13 +1,13 @@
-# rust-range-check [![range-check on crates.io](http://meritbadge.herokuapp.com/range-check)](https://crates.io/crates/range_check) [![Build status](https://travis-ci.org/ogham/rust-range-check.svg?branch=master)](https://travis-ci.org/ogham/rust-range-check) [![Coverage status](https://coveralls.io/repos/ogham/rust-range-check/badge.svg?branch=master&service=github)](https://coveralls.io/github/ogham/rust-range-check?branch=master)
+# rust-range-check [![range-check on crates.io](http://meritbadge.herokuapp.com/range-check)](https://crates.io/crates/range_check) [![Build status](https://travis-ci.org/ogham/rust-range-check.svg?branch=master)](https://travis-ci.org/ogham/rust-range-check)
 
-This is a little library that helps with range and bounds checking. It works with Rust’s standard `Range`, `RangeFrom`, and `RangeTo` types.
+This is a little library for early returns with range and bounds checking. It works with Rust’s standard `Range` types.
 
-### [View the Rustdoc](http://ogham.rustdocs.org/range_check)
+### [View the Rustdoc](https://docs.rs/range_check)
 
 
 # Installation
 
-This crate works with [Cargo](http://crates.io). Add the following to your `Cargo.toml` dependencies section:
+This crate works with [Cargo](https://crates.io). Add the following to your `Cargo.toml` dependencies section:
 
 ```toml
 [dependencies]
@@ -15,33 +15,56 @@ range_check = "0.1"
 ```
 
 
-## Checking whether a range contains a value
+# Stability
 
-The trait `Contains` is implemented on the range types. As long as the data type in question is `PartialOrd`, it can be used to check whether a value of that type is contained within a range:
+This crate requires the `collections_range` feature, which was stabilised in Rust 1.28.0.
+
+
+# Examples
+
+## Range checking in the stdlib
+
+Rust’s standard library allows you to test whether a range contains
+a specified value:
 
 ```rust
-use range_check::Contains;
-
-let range = 3000..5000;
-assert!(range.contains(4123));
-
-let range = 10..;
-assert!(range.contains(23));
+// Range checking with std::ops
+assert_eq!((0..24).contains(&23), true);
+assert_eq!((0..24).contains(&24), false);
 ```
 
-There’s also the `Within` trait, which does the same check, only with the range as the argument:
+For more information, see the
+[official Rust documentation for `std::ops::RangeBounds`](https://doc.rust-lang.org/std/ops/trait.RangeBounds.html).
+
+
+## Range checking with this crate
+
+The `range_check` crate provides the `Check` trait that has a function `check_range`, which returns a `Result` instead of a `bool`.
+
+If the value exists within the range, it will return the value as an `Ok` variant:
 
 ```rust
-use range_check::Within;
+use range_check::Check;
 
-assert!(4123.is_within(3000..5000));
-assert!(23.is_within(10..));
+assert_eq!(24680.check_range(1..99999),
+           Ok(24680));
+```
+
+If the value does _not_ exist within the range, it will be returned inside an [`OutOfRangeError`](struct.OutOfRangeError.html) error variant:
+
+```rust
+use range_check::Check;
+
+assert_eq!(24680.check_range(1..9999).unwrap_err().to_string(),
+           "value (24680) outside of range (1..9999)");
 ```
 
 
 ## Failing early if a value is outside a range
 
-It can sometimes be more helpful to automatically return a failure case, such as with the `try!` macro, than just check whether a value is inside a range. The `Check` trait returns `Result`s that contain debugging information for when a value doesn’t lie within a range:
+When testing multiple values, it can sometimes be helpful to automatically return when one of them is outside a range.
+
+In this example, we use the `?` operator to return early:
 
 ```rust
 use range_check::Check;
@@ -54,22 +77,39 @@ struct Clock {
 impl Clock {
     fn new(hour: i8, minute: i8) -> range_check::Result<Clock, i8> {
         Ok(Clock {
-            hour:   try!(hour.check_range(0..24)),
-            minute: try!(minute.check_range(0..60)),
+            hour: hour.check_range(0..24)?,
+            minute: minute.check_range(0..60)?,
         })
     }
 }
 
 assert!(Clock::new(23, 59).is_ok());
+assert!(Clock::new(23, 60).is_err());
 assert!(Clock::new(24, 00).is_err());
 ```
 
-Displaying the `Error` that gets returned in the error case shows you exactly which range failed to be satisfied:
+It becomes a problem when the values being tested are of different types, as there can only be one type as the error `Result` from the function.
+
+As long as the types can be converted using the `From` trait, you can convert the error using the `OutOfRangeError::generify` function. In the first call in this example, we convert the error from containing an `i8` to an `i16`:
 
 ```rust
-use std::string::ToString;
-use range_check::Check;
+use range_check::{Check, OutOfRangeError};
 
-let failure = 13.check_range(0..10).unwrap_err();
-assert_eq!(failure.to_string(), "value (13) outside of range (0 .. 10)");
+struct Clock {
+    second: i8,
+    millisecond: i16,
+}
+
+impl Clock {
+    fn new(second: i8, millisecond: i16) -> range_check::Result<Clock, i16> {
+        Ok(Clock {
+            second: second.check_range(0..60).map_err(OutOfRangeError::generify)?,
+            millisecond: millisecond.check_range(0..1000)?,
+        })
+    }
+}
+
+assert!(Clock::new(45, 576).is_ok());
+assert!(Clock::new(49, 23456).is_err());
+assert!(Clock::new(61, 0).is_err());
 ```
