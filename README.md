@@ -11,7 +11,7 @@ This crate works with [Cargo](https://crates.io). Add the following to your `Car
 
 ```toml
 [dependencies]
-range_check = "0.1"
+range_check = "0.2"
 ```
 
 

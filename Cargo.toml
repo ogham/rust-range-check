@@ -7,6 +7,6 @@ documentation = "https://docs.rs/range_check"
 homepage = "https://github.com/ogham/rust-range-check"
 license = "MIT"
 readme = "README.md"
-version = "0.1.0"
+version = "0.2.0"
 
 [dependencies]
